@@ -27,7 +27,7 @@ class WaypointManager(Node):
 
 
     def pushWaypoints():
-        return 0
+        
 
     def verifyMission():
         return 0
