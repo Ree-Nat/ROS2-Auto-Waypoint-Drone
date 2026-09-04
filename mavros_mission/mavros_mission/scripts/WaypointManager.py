@@ -1,8 +1,12 @@
+from typing import ty
 import rclpy
 from mavros_msgs.msg import Waypoint, WaypointList, WaypointReached
 from mavros_msgs.srv import SetMode, WaypointClear, WaypointPull, WaypointPush, WaypointSetCurrent
-from rclpy.node import Node
+from rclpy.node import Node, SrvTypeRequest
 #from rclpy.qos import HistoryPolicy, QoSPresetProfiles, ReliabilityPolicy
+
+HOME_SAFE_ALTITUDE = 5
+
 
 class WaypointManager(Node):
 
@@ -26,8 +30,77 @@ class WaypointManager(Node):
             self.waypoints_list = []
 
 
-    def pushWaypoints():
-        
+
+    def set_waypoint(self, waypoint: int) -> bool:
+        #Sets the current active waypoint
+
+        request = WaypointSetCurrent.Request()
+        request.wp_seq
+
+    #Pushes waypoint list to be executed
+    def push_waypoints(self, waypoints: ty.List[Waypoint]) -> bool:
+        request = WaypointPush.Request()
+        request.start_index = 0
+        request.waypoints = waypoints
+
+        self.get_logger().info("Pushing waypoints")
+        async_request = self.push_client.call_async(request)
+        rclpy.spin_until_future_complete(self, async_request, timeout_sec=5.0)
+
+        if async_request.result() is not None:
+            self.get_logger().info("Successly push waypoints")
+        else:
+            self.get_logger().info("Waypoint push failed")
+
+
+
+    def clear_waypoints(self) -> bool:
+        "clear all given waypoints"
+
+        request = WaypointClear.Request()
+
+        self.get_logger().info("Clearing waypoints")
+
+        async_req = self.clear_client.call_async(request)
+        rclpy.spin_until_future_complete(self, async_req, timeout_sec=5.0)
+
+        if async_req.result() is not None:
+            response = async_req.result()
+            self.get_logger().info("Successfully cleared waypoints")
+        else:
+            self.get_logger().info("Waypoint clearance failed")
+
+    #begins the mission after pushing waypoints
+    def set_auto_mode(self, mode: str = 'AUTO.MISSION') -> bool:
+        request = SetMode.Request()
+        request.custom_mode = mode
+
+        self.get_logger().info("Setting flight mode to AUTO_MISSION")
+
+        async_req = self.set_mode_client.call_async(request)
+        rclpy.spin_until_future_complete(self, async_req, timeout_sec=5.0)
+
+        if async_req.result() is not None:
+            self.get_logger().info("AUTO MODE ACTIVATED")
+        else:
+            self.get_logger().info("AUTO MODE FAILED!")
+
+    #Brings vehicle back to home
+    def set_return_mode(self, mode: str = 'AUTO.RTLs') -> bool:
+        request = SetMode.Request()
+        request.custom_mode = mode
+    
+        self.get_logger().info("Setting flight mode to AUTO")
+    
+        async_req = self.set_mode_client.call_async(request)
+        rclpy.spin_until_future_complete(self, async_req, timeout_sec=5.0)
+    
+        if async_req.result() is not None:
+            self.get_logger().info("AUTO_RTL MODE ACTIVATED")
+        else:
+            self.get_logger().info("AUTO_RTL MODE FAILED!")
+    
+
 
     def verifyMission():
         return 0
