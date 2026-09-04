@@ -1,7 +1,7 @@
 from typing import ty
 import rclpy
 from mavros_msgs.msg import Waypoint, WaypointList, WaypointReached
-from mavros_msgs.srv import SetMode, WaypointClear, WaypointPull, WaypointPush, WaypointSetCurrent
+from mavros_msgs.srv import SetMode, WaypointClear, WaypointPull, WaypointPush, WaypointSetCurrent, CommandBool, CommandTOL
 from rclpy.node import Node, SrvTypeRequest
 #from rclpy.qos import HistoryPolicy, QoSPresetProfiles, ReliabilityPolicy
 
@@ -20,6 +20,8 @@ class WaypointManager(Node):
             self.clear_client = self.create_client(WaypointClear, '/mavros/mission/clear') #clear list of waypoint
             self.set_current_client = self.create_client(WaypointSetCurrent, '/mavros/mission/set_current')
             self.set_mode_client = self.create_client(SetMode, '/mavros/set_mode')
+            self.arming_client = self.create_client(CommandBool, '/mavros/cmd/arming')
+            self.takeoff_client = self.create_client(CommandTOL, 'mavros/cmd/takeoff')
 
             #subsribers
 
@@ -55,7 +57,7 @@ class WaypointManager(Node):
 
 
     def clear_waypoints(self) -> bool:
-        "clear all given waypoints"
+        #"clear all given waypoints"
 
         request = WaypointClear.Request()
 
@@ -69,6 +71,20 @@ class WaypointManager(Node):
             self.get_logger().info("Successfully cleared waypoints")
         else:
             self.get_logger().info("Waypoint clearance failed")
+
+    def arm_vehicle(self) -> bool:
+        #Arm the client 
+        request = CommandBool.Request()
+        request.value = True
+
+        async_request = self.arming_client.call_async(request)
+        rclpy.spin_until_future_complete(self, async_request, timeout_sec=5.0)
+
+        if async_request.result() is not None:
+            self.get_logger().info("Vehicle armed")
+        else:
+            self.get_logger().info("Vehicle failed to arm. Service call failed")
+
 
     #begins the mission after pushing waypoints
     def set_auto_mode(self, mode: str = 'AUTO.MISSION') -> bool:
@@ -86,7 +102,7 @@ class WaypointManager(Node):
             self.get_logger().info("AUTO MODE FAILED!")
 
     #Brings vehicle back to home
-    def set_return_mode(self, mode: str = 'AUTO.RTLs') -> bool:
+    def set_return_mode(self, mode: str = 'AUTO.RTL') -> bool:
         request = SetMode.Request()
         request.custom_mode = mode
     
@@ -99,7 +115,16 @@ class WaypointManager(Node):
             self.get_logger().info("AUTO_RTL MODE ACTIVATED")
         else:
             self.get_logger().info("AUTO_RTL MODE FAILED!")
-    
+
+    def call_takeoff(self, altitude : float = HOME_SAFE_ALTITUDE):
+        request = CommandTOL.Request()
+        request.altitude = altitude
+
+        async_req = self.takeoff_client.call_async(request)
+        rclpy.spin_until_future_complete(self, async_req, timeout_sec=5)
+
+        if async_req is not None:
+            self.get_logger().info
 
 
     def verifyMission():
